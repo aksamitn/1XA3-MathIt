@@ -20,3 +20,4 @@ instance Show a => Show (Expr a) where
   show (Sin ss) = parens $ "sin " ++ show ss
   show (Log ss) = parens $ "log " ++ show ss
   show (Exp ss) = parens $ "exp " ++ show ss
+  show (Ln ss) = parens $ "ln " ++ show ss

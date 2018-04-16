@@ -21,6 +21,7 @@ data Expr a = Add (Expr a) (Expr a) -- ^ Binary Addition
             | Sin (Expr a)
             | Log (Expr a)
             | Exp (Expr a)
+            | Ln (Expr a)
             | Const a -- ^ Wrap a constant value
             | Var String -- ^ Wrap a variable identifier
   deriving Eq
