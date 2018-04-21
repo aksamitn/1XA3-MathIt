@@ -4,193 +4,173 @@ import Text.Parsec
 import Text.Parsec.String
 
 import ExprType
-import ExprPretty
 
-{-
-  parseExpr*
-  ----------
-
-  Takes a string of format:
-  .....
-  and parses an expression of Expr *
--}
-
+-- Main parsing function of doubles
 parseExprD :: String -> Expr Double
 parseExprD ss = case parse exprD "" ss of
                   Left err -> error $ show err
                   Right expr -> expr
 
+exprD :: Parser (Expr Double)
+exprD =  try exprOpD <|> exprFuncsD <|>  exprConstD <|> exprVar
+
+-- Improved Parsing of floats
 parseExprF :: String -> Expr Float
 parseExprF ss = case parse exprF "" ss of
                   Left err -> error $ show err
                   Right expr -> expr
 
-exprD :: Parser (Expr Double)
-exprD = exprVar <|> exprConstD <|> exprTrigD <|> exprExpD <|> exprOpD
-
 exprF :: Parser (Expr Float)
-exprF = exprVar <|> exprConstF <|> exprTrigF <|> exprExpF <|> exprOpF
+exprF =  try exprOpF <|> exprFuncsF <|>  exprConstF <|> exprVar
 
 
--- ############ EXPR PARSING FUNCTIONS FOR DOUBLES ############
+-- ############ IMPROVED EXPR PARSING FUNCTIONS FOR DOUBLES ############
 
+exprFuncsD :: Parser (Expr Double)
+exprFuncsD = do {
+           s <- symbol "cos" <|>
+                symbol "Cos" <|>
+                symbol "sin" <|>
+                symbol "Sin" <|>
+                symbol "tan" <|>
+                symbol "Tan" <|>
+                symbol "csc" <|>
+                symbol "Csc" <|>
+                symbol "sec" <|>
+                symbol "Sec" <|>
+                symbol "cot" <|>
+                symbol "Cot" <|>
+                symbol "exp" <|>
+                symbol "Exp" <|>
+                symbol "ln"  <|>
+                symbol "Ln"  <|>
+                symbol "log" <|>
+                symbol "Log";
 
-{-
-  #TODO Expand me later!
-  exprTrigD is a function which deals with the parsing
-  of trigonometic functions.
+           exprs <- (exprConstD <|> exprVar <|> exprFuncsD) <|> between (symbol "(") (symbol ")") (exprD);
+           num <- optionMaybe ((try exprConstD <|> exprVar <|> exprFuncsD) <|> between (symbol "(") (symbol ")") (exprD));
 
-  More specifically, it is able to parse:
-    - Sine   (Sin)
-    - Cosine (Cos)
--}
-exprTrigD :: Parser (Expr Double)
-exprTrigD = do {
-               s <- symbol "Cos" <|> symbol "Sin";
-               ss <- exprD;
-
-               if s == "Cos" then
-                 return (Cos ss);
-               else
-                 return (Sin ss);
-             }
-
-{-
-  #TODO Expand me later!
-  exprExpD is a function which deals with the parsing
-  of exponential functions and nearby entities.
-
-  More specifically, it is able to parse:
-    - Natural Exponential (e)
-    - Natural Logarithm   (ln)
-    - Logarithm           (log)
--}
-exprExpD :: Parser (Expr Double)
-exprExpD = do {
-               s <- symbol "Ln" <|> symbol "Log" <|> symbol "Exp";
-               ss <- between (symbol "(") (symbol ")") (exprD);
-
-
-               if s == "Ln" then
-                 return (Ln ss);
-               else if s == "Log" then
-                 return (Log ss);
-               else
-                 return (Exp ss);
-             }
-
-exprConstD :: Parser (Expr Double)
-exprConstD = do {
-               symbol "Const";
-               ss <- double;
-               return (Const ss);
-             }
+           if s == "cos" || s == "Cos" then
+             return (Cos exprs);
+           else if s == "sin" || s == "Sin" then
+             return (Sin exprs);
+           else if s == "tan" || s == "Tan" then
+             return (Tan exprs);
+           else if s == "csc" || s == "Csc" then
+             return (Csc exprs);
+           else if s == "sec" || s == "Sec" then
+             return (Sec exprs);
+           else if s == "cot" || s == "Cot" then
+             return (Cot exprs);
+           else if s == "ln" || s == "Ln" then
+             return (Ln exprs);
+           else if s == "log" || s == "Log" then
+             case num of
+               Just x -> return (Log exprs x);
+               Nothing -> error "Invalid log input, requires log (base) (value)";
+           else
+             return (Exp exprs);
+         }
 
 exprOpD :: Parser (Expr Double)
 exprOpD = do {
-                s <- symbol "Add" <|> symbol "Mult";
-                ss <- between (symbol "(") (symbol ")") (exprVar <|> exprConstD <|> exprOpD <|> exprOpD);
-                ss' <- between (symbol "(") (symbol ")") (exprVar <|> exprConstD <|> exprOpD <|> exprOpD);
+                left <- (exprConstD <|> exprVar <|> exprFuncsD) <|> between (symbol "(") (symbol ")") (exprD);
+                s <- (symbol "+" <|> symbol "*" <|> symbol "^");
+                right <- (exprConstD <|> exprVar <|> exprFuncsD) <|> between (symbol "(") (symbol ")") (exprD);
 
-                {-
-                  This parser can only have the option of
-                  Adding or Multiplying, so it's necessary
-                  to check whether the initial input was
-                  "Add" or "Mult", and return the correct
-                  result accordingly
-                -}
-                if s == "Add" then
-                  return (Add ss ss'); -- Initial s is "Add", return Add
-                else -- The only other option is to return "Mult", since it wasn't "Add"
-                  return (Mult ss ss')
+                if s == "+" then
+                  return (Add left right);
+                else if s == "*" then
+                  return (Mult left right);
+                else
+                  return (Power left right);
               }
 
 
--- ############ EXPR PARSING FUNCTIONS FOR FLOATS ############
+exprConstD :: Parser (Expr Double)
+exprConstD = do {
+                   s <- double;
+                   return (Const s);
+                 }
 
+-- ############ IMPROVED EXPR PARSING FUNCTIONS FOR FLOATS ############
 
-{-
-  #TODO Expand me later!
-  exprTrigD is a function which deals with the parsing
-  of trigonometic functions.
+exprFuncsF :: Parser (Expr Float)
+exprFuncsF = do {
+          s <- symbol "cos" <|>
+               symbol "Cos" <|>
+               symbol "sin" <|>
+               symbol "Sin" <|>
+               symbol "tan" <|>
+               symbol "Tan" <|>
+               symbol "csc" <|>
+               symbol "Csc" <|>
+               symbol "sec" <|>
+               symbol "Sec" <|>
+               symbol "cot" <|>
+               symbol "Cot" <|>
+               symbol "exp" <|>
+               symbol "Exp" <|>
+               symbol "ln"  <|>
+               symbol "Ln"  <|>
+               symbol "log" <|>
+               symbol "Log";
 
-  More specifically, it is able to parse:
-    - Sine   (Sin)
-    - Cosine (Cos)
--}
-exprTrigF :: Parser (Expr Float)
-exprTrigF = do {
-               s <- symbol "Cos" <|> symbol "Sin";
-               ss <- between (symbol "(") (symbol ")") (exprF);
+          exprs <- (exprF) <|> between (symbol "(") (symbol ")") (exprF);
+          num <- optionMaybe ((try exprFuncsF <|>  exprConstF <|> exprVar) <|> between (symbol "(") (symbol ")") (exprF));
 
-               if s == "Cos" then
-                 return (Cos ss);
-               else
-                 return (Sin ss);
-             }
-
-{-
-  #TODO Expand me later!
-  exprExpD is a function which deals with the parsing
-  of exponential functions and nearby entities.
-
-  More specifically, it is able to parse:
-    - Natural Exponential (e)
-    - Natural Logarithm   (ln)
-    - Logarithm           (log)
--}
-exprExpF :: Parser (Expr Float)
-exprExpF = do {
-               s <- symbol "Ln" <|> symbol "Log" <|> symbol "Exp";
-               ss <- between (symbol "(") (symbol ")") (exprF);
-
-
-               if s == "Ln" then
-                 return (Ln ss);
-               else if s == "Log" then
-                 return (Log ss);
-               else
-                 return (Exp ss);
-             }
-
-exprConstF :: Parser (Expr Float)
-exprConstF = do {
-               symbol "Const";
-               ss <- float;
-               return (Const ss);
-             }
+          if s == "cos" || s == "Cos" then
+            return (Cos exprs);
+          else if s == "sin" || s == "Sin" then
+            return (Sin exprs);
+          else if s == "tan" || s == "Tan" then
+            return (Tan exprs);
+          else if s == "csc" || s == "Csc" then
+            return (Csc exprs);
+          else if s == "sec" || s == "Sec" then
+            return (Sec exprs);
+          else if s == "cot" || s == "Cot" then
+            return (Cot exprs);
+          else if s == "ln" || s == "Ln" then
+            return (Ln exprs);
+          else if s == "log" || s == "Log" then
+            case num of
+              Just x -> return (Log exprs x);
+              Nothing -> error "Invalid log input, requires log (base) (value)";
+          else
+            return (Exp exprs);
+        }
 
 exprOpF :: Parser (Expr Float)
 exprOpF = do {
-                s <- symbol "Add" <|> symbol "Mult";
-                ss <- between (symbol "(") (symbol ")") (exprVar <|> exprConstF <|> exprOpF);
-                ss' <- between (symbol "(") (symbol ")") (exprVar <|> exprConstF <|> exprOpF);
+               left <- (exprConstF <|> exprVar) <|> between (symbol "(") (symbol ")") (exprF);
+               s <- symbol "+" <|> symbol "*" <|> symbol "^";
+               right <- (exprConstF <|> exprVar) <|> between (symbol "(") (symbol ")") (exprF);
 
-                {-
-                  This parser can only have the option of
-                  Adding or Multiplying, so it's necessary
-                  to check whether the initial input was
-                  "Add" or "Mult", and return the correct
-                  result accordingly
-                -}
-                if s == "Add" then
-                  return (Add ss ss'); -- Initial s is "Add", return Add
-                else -- The only other option is to return "Mult", since it wasn't "Add"
-                  return (Mult ss ss')
-              }
-
-
-
-
--- ############ EXPR PARSING GENERALIZED ############
-
-exprVar :: Parser (Expr a) -- Abstracted and available for use whether for float values or double
-exprVar = do {
-               symbol "Var";
-               ss <- many1 letter;
-               return (Var ss);
+               if s == "+" then
+                 return (Add left right);
+               else if s == "*" then
+                 return (Mult left right);
+               else
+                 return (Power left right)
              }
 
+
+exprConstF :: Parser (Expr Float)
+exprConstF = do {
+                  s <- float;
+                  return (Const s);
+                }
+
+
+-- ############ ABSTRACTED AND IMPROVED EXPR PARSING FUNCTIONS ############
+
+
+exprVar :: Parser (Expr a)
+exprVar = do {
+                s <- between (symbol "'") (symbol "'") (many1 letter);
+                return (Var s);
+              }
 
 
 

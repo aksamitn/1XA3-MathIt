@@ -17,11 +17,16 @@ import Data.List
 -- | a datatype for encoding numeric expressions
 data Expr a = Add (Expr a) (Expr a) -- ^ Binary Addition
             | Mult (Expr a) (Expr a) -- ^ Binary Multiplication
-            | Cos (Expr a)
-            | Sin (Expr a)
-            | Log (Expr a)
-            | Exp (Expr a)
-            | Ln (Expr a)
+            | Power (Expr a) (Expr a)
+            | Cos (Expr a) -- Cosine
+            | Sin (Expr a) -- Sin
+            | Tan (Expr a) -- Tan
+            | Csc (Expr a) -- Cosecant
+            | Sec (Expr a) -- Secant
+            | Cot (Expr a) -- Cotangent
+            | Log (Expr a) (Expr a) -- Log
+            | Exp (Expr a) -- Exponential
+            | Ln (Expr a)  -- Natural Log
             | Const a -- ^ Wrap a constant value
             | Var String -- ^ Wrap a variable identifier
   deriving Eq
@@ -34,5 +39,15 @@ data Expr a = Add (Expr a) (Expr a) -- ^ Binary Addition
 getVars :: Expr a -> [String]
 getVars (Add e1 e2) = getVars e1 `union` getVars e2
 getVars (Mult e1 e2) = getVars e1 `union` getVars e2
+getVars (Power e1 e2) = getVars e1 `union` getVars e2
+getVars (Cos x) = getVars x
+getVars (Sin x) = getVars x
+getVars (Tan x) = getVars x
+getVars (Csc x) = getVars x
+getVars (Sec x) = getVars x
+getVars (Cot x) = getVars x
+getVars (Log base x) = getVars base `union` getVars x
+getVars (Exp x) = getVars x
+getVars (Ln x) = getVars x
 getVars (Const _) = []
 getVars (Var ident) = [ident]
